@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Import MS3D Dummy",
     "author": "Ramon Wong",
-    "version": (1, 9),
+    "version": (2, 0),
     "blender": (2, 90, 0),
     "location": "File > Import",
     "description": "Import a MilkShape3D (MS3D) file and print header info.",
@@ -161,23 +161,36 @@ class ImportMS3DDummy(Operator, ImportHelper):
                             print(f"Texture path NOT found: {abs_path}")
 
 
-
                 self.report({'INFO'}, f"Parsed {len(vertices)} vertices, {len(triangles)} triangles, {len(meshes)} meshes, {len(materials)} materials.")
-
 
 
                 bpy.ops.object.select_all(action='SELECT')
                 bpy.ops.object.delete(use_global=False)
 
                 vertex_coords   = [v['co'] for v in vertices]
-                faces           = [t['indices'] for t in triangles]
+                triangle        = [t['indices'] for t in triangles]
 
-                mesh = bpy.data.meshes.new("MS3D_Mesh")
-                obj = bpy.data.objects.new("MS3D_Object", mesh)
+                mesh            = bpy.data.meshes.new("MS3D_Mesh")
+                obj             = bpy.data.objects.new("MS3D_Object", mesh)
                 obj.rotation_euler[0] = math.radians(90)
                 context.collection.objects.link(obj)
-                mesh.from_pydata(vertex_coords, [], faces)
+                mesh.from_pydata(vertex_coords, [], triangle)
                 mesh.update()
+
+                # --- Insert normals here ---
+                split_normals   = []
+                for tr in triangles:
+                    # 1. Build the split normals:
+                    split_normals.extend( tr['normals'])
+
+                    # 2. Enable auto smooth
+                    mesh.use_auto_smooth = True
+                    mesh.calc_normals_split()  # Prepares the mesh for custom split normals
+                    mesh.normals_split_custom_set(split_normals)
+                    mesh.update()
+
+                # --- End normals         ---
+
 
                 bpy.context.view_layer.objects.active = obj
                 obj.select_set(True)
